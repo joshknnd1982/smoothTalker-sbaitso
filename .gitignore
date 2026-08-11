@@ -1,0 +1,5 @@
+__pycache__/
+*.py[cod]
+
+# Build output; published to Releases rather than committed.
+*.nvda-addon

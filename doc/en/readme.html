@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dr. Sbaitso (SmoothTalker) synthesizer for NVDA</title>
+</head>
+<body>
+
+<h1>Dr. Sbaitso (SmoothTalker) synthesizer</h1>
+
+<p>This add-on adds the speech synthesizer from Creative Labs'
+<strong>Dr. Sbaitso</strong> (1990) to NVDA.</p>
+
+<p>By Josh Kennedy &lt;<a href="mailto:joshknnd1982@gmail.com">joshknnd1982@gmail.com</a>&gt;.</p>
+
+<h2>Requirements</h2>
+
+<p><strong>NVDA 2026.1 or later.</strong> NVDA became a 64-bit application in
+2026.1, so the bundled Unicorn emulator is the 64-bit build and this version of
+the add-on will not run on earlier, 32-bit releases of NVDA.</p>
+
+<h2>How it works</h2>
+
+<p>Rather than reimplementing the synthesizer, this add-on runs the
+<em>original 16-bit DOS speech engine</em> &mdash; First Byte's SmoothTalker
+3.5 &mdash; inside the <a href="https://www.unicorn-engine.org/">Unicorn</a>
+CPU emulator.</p>
+
+<p>The bundled engine image is a snapshot of DOS conventional memory taken
+with the <code>SBTALKER</code> TSR already resident. It is mapped verbatim at
+linear address 0, so every far pointer inside it remains valid. NVDA's text is
+written into the engine's own text buffer and the speech entry point is called
+exactly as <code>SBAITSO2.EXE</code> called it in 1990.</p>
+
+<p>The engine drives what it believes is a Sound Blaster. The add-on emulates
+just enough of the DSP and the 8237 DMA controller to capture the audio the
+card would have played: the DSP time constant gives the sample rate, and each
+programmed DMA block is read straight out of emulated memory. That audio is
+converted to 16-bit, resampled to 22050 Hz and handed to NVDA's audio
+output.</p>
+
+<h2>Performance</h2>
+
+<p>The emulator is built once and kept resident for the life of NVDA. The
+engine is a TSR &mdash; the original software called it repeatedly without
+reloading &mdash; so reusing it is exactly what it was designed for, and it
+avoids re-mapping a megabyte and rewriting the 640&nbsp;KB image on every
+utterance.</p>
+
+<p>Audio is also streamed: each DMA block is handed to NVDA's output as soon
+as the engine produces it, so playback begins long before a long sentence has
+finished rendering. Audio starts in roughly 12&ndash;35&nbsp;ms regardless of
+how much text was sent; overall synthesis runs about 15 times faster than real
+time on a worker thread.</p>
+
+<h2>Rate, pitch and volume</h2>
+
+<p>The engine keeps its settings in a five-word block that the original
+Dr. Sbaitso filled with <code>0, 0, 5, 5, 5</code>. Sweeping each word and
+measuring the resulting audio identified three of them:</p>
+
+<p>The field names below are First Byte's own: <code>READ.EXE</code> and
+<code>SET-ECHO.EXE</code> both embed the structure's field list
+(<code>gender, tone, volume, pitch, speed, startpos, action</code>), and
+Dr. Sbaitso's <code>PARAM</code> command documents the ranges as
+"<em>tvps are 4 digits representing: Tone/Volume/Pitch/Speed</em>".</p>
+
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th>Field</th><th>Exposed as</th><th>Range</th><th>Effect</th></tr>
+<tr><td>gender</td><td>&mdash;</td><td>&mdash;</td><td>no effect; this is the male-voice build of SmoothTalker 3.5</td></tr>
+<tr><td>tone</td><td>Tone</td><td>0/1</td><td>on cuts the low end &mdash; thinner and brighter</td></tr>
+<tr><td>volume</td><td>Volume</td><td>0&ndash;9</td><td>quiet to loud; does not clip</td></tr>
+<tr><td>pitch</td><td>Pitch</td><td>0&ndash;9</td><td>about 41 Hz to 154 Hz</td></tr>
+<tr><td>speed</td><td>Rate</td><td>0&ndash;9</td><td>1.91 s to 0.81 s for a fixed phrase</td></tr>
+</table>
+
+<p>There is no intonation setting, because the engine has no such control.
+It does produce intonation of its own accord &mdash; pitch moves over roughly
+48&ndash;110&nbsp;Hz within an utterance from SmoothTalker's prosody rules
+&mdash; but unlike eSpeak there is no knob for how much.</p>
+
+<p>NVDA's sliders are declared over the engine's own <strong>0&ndash;9</strong>
+range rather than the usual 0&ndash;100, with 5 as the default (Tone is a
+slider too, with just the two positions 0 and 1). Nothing is rescaled, so
+every setting the engine has is individually reachable and the numbers you
+see are the engine's actual values. The settings ring steps by one unit at a
+time instead of NVDA's usual 5; page up and page down in the Voice settings
+dialog move by 3.</p>
+
+<p>Settings appear, both in the dialog and in the settings ring, in the
+order <strong>Rate, Pitch, Tone, Volume</strong>.</p>
+
+
+<p><strong>Upgrading from 0.4.x:</strong> the settings range changed, so any
+previously saved rate, pitch and volume values will be reset to the
+default of 5.</p>
+
+<h2>Changes in 1.1</h2>
+
+<ul>
+<li>NVDA 2026.1 support. NVDA is now a 64-bit application, so the bundled
+Unicorn build was replaced with the 64-bit one; the 32-bit library shipped
+previously could not be loaded into NVDA at all, and the synthesizer was
+missing from the list as a result.</li>
+<li>Fixed the synthesizer sometimes failing to load at NVDA startup. The audio
+output device was opened while the driver was being constructed, and NVDA
+starts before the audio endpoints have necessarily settled &mdash; common with
+USB or Bluetooth audio. A device that was not ready yet made the whole driver
+fail to construct, and NVDA quietly fell back to another synthesizer for the
+rest of the session. The device is now opened when there is something to say,
+and retried on each utterance, so a slow device costs a moment of speech rather
+than the session.</li>
+<li>A failure to load the emulator no longer makes the driver disappear
+without explanation: it is reported in the log, naming the file and, for an
+architecture mismatch, what was found and what was expected.</li>
+<li>Installing now also clamps any out-of-range rate, pitch, tone or volume
+left in the configuration, which NVDA would otherwise refuse to load the
+synthesizer over.</li>
+</ul>
+
+<h2>Interrupting speech</h2>
+
+<p>Each utterance carries a generation number, and cancelling bumps it,
+permanently invalidating anything queued or already being rendered. Audio is
+handed to the sound output in small slices with a staleness check between
+each, so interrupting NVDA &mdash; pressing a command twice quickly, or
+arrowing rapidly through a list &mdash; stops the old speech immediately
+instead of letting a trailing fragment through.</p>
+
+<h2>Limitations</h2>
+
+<ul>
+<li><strong>Limited rate range.</strong> The engine's fastest setting is only
+about 1.45 times its default speed &mdash; far slower than experienced screen
+reader users often prefer. That is a limit of the 1990 engine, not of the
+add-on.</li>
+<li>One voice only &mdash; SmoothTalker 3.5, male.</li>
+<li>The engine accepts at most 255 characters per call &mdash; its length
+field is a single byte. Longer text is split automatically at sentence
+boundaries (falling back to clause, then word breaks) and spoken as
+consecutive utterances, so nothing is lost. Because the engine restarts its
+prosody at each break, a long unbroken sentence may have a slight pause
+where it had to be divided.</li>
+</ul>
+
+<h2>Credits and licensing</h2>
+
+<p>Add-on by Josh Kennedy
+&lt;<a href="mailto:joshknnd1982@gmail.com">joshknnd1982@gmail.com</a>&gt;.</p>
+
+<p>SmoothTalker is &copy; 1983-1990 First Byte. The two patents it was
+originally covered by (U.S. 4,692,941 and 4,617,645) have long expired, but
+the engine code and voice data remain under copyright. The bundled engine
+image is derived from an original Creative Labs distribution and is included
+here for personal use; it should be removed before redistributing this
+add-on publicly.</p>
+
+<p>Unicorn 2.1.4 (64-bit Windows build) is bundled and is licensed under the
+GPLv2.</p>
+
+</body>
+</html>

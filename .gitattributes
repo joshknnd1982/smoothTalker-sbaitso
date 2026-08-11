@@ -1,0 +1,7 @@
+* text=auto
+
+# The engine image is a byte-exact snapshot of DOS conventional memory and the
+# emulator is a native library; neither may be touched by line-ending
+# normalisation on any platform.
+*.bin binary
+*.dll binary
