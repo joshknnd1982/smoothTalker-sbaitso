@@ -15,6 +15,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 #: stale .pyc that outlives the .py it came from is a genuinely confusing bug.
 SKIP_DIRS = {'__pycache__', '.git', '.github'}
 SKIP_EXTS = ('.pyc', '.pyo', '.nvda-addon')
+#: Repository furniture; it has no business inside an installed add-on.
+SKIP_NAMES = {'build.py', '.gitignore', '.gitattributes'}
 
 
 def version():
@@ -34,7 +36,7 @@ def build():
         for dirpath, dirnames, filenames in os.walk(ROOT):
             dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
             for name in filenames:
-                if name.endswith(SKIP_EXTS) or name in ('.gitignore', 'build.py'):
+                if name.endswith(SKIP_EXTS) or name in SKIP_NAMES:
                     continue
                 full = os.path.join(dirpath, name)
                 z.write(full, os.path.relpath(full, ROOT).replace(os.sep, '/'))
