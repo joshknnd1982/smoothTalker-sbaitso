@@ -78,8 +78,9 @@ version from `manifest.ini`.
 
 ## Copyright and licensing
 
-The add-on code is licensed under the **GPL-2.0** — see [LICENSE](LICENSE).
-Unicorn, bundled in `synthDrivers/_smoothtalker_engine/lib/`, is also GPL-2.0.
+The add-on code is licensed under the **MIT License** — see [LICENSE](LICENSE).
+Unicorn, bundled in `synthDrivers/_smoothtalker_engine/lib/`, is not covered by it:
+it is GPL-2.0, and its licence text is in [NOTICE.md](NOTICE.md).
 
 **The bundled engine image is not mine to license.** SmoothTalker is
 © 1983–1990 First Byte. The two patents it was originally covered by
